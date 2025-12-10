@@ -14,6 +14,10 @@ Config.RemoveBagInVehicle = true -- Remove visual in vehicle
 Config.UseInventoryBags = true -- Inventory items with props
 Config.UseClothingBags = false -- illenium-appearance clothing
 
+-- Debug
+Config.EnableDebugCommand = true
+Config.DebugCommandName = 'checkbag'
+
 -- Capacity Settings
 Config.EnableWeightIncrease = true
 Config.EnableSlotIncrease = true
@@ -46,10 +50,6 @@ Config.BackpackBone = 24818
 -- Timing
 Config.SpawnDelay = 4500 -- Player connect delay (ms)
 Config.BackpackCheckDelay = 1000 -- Duplicate check delay (ms)
-
--- Debug
-Config.EnableDebugCommand = true
-Config.DebugCommandName = 'checkbag'
 
 -- Backpack Configurations (UseInventoryBags only)
 Config.Backpacks = {

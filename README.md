@@ -1,3 +1,4 @@
+<!-- filepath: c:\FXserver_demo\Qbox_Beta.base\resources\[standalone]\yote_backpacks\README.md -->
 # yote_backpacks
 
 A highly configurable backpack system for FiveM using ox_inventory with visual backpack props, inventory management, and illenium-appearance integration.
@@ -29,11 +30,13 @@ Traditional backpack systems create separate inventories that:
 - **Multiple Backpack Types** - Configure unlimited custom backpacks with unique models, weights, and slots
 - **Weight & Slot Increase** - Configurable weight and inventory slot bonuses per backpack
 - **Smart Removal Prevention** - Can't remove backpack if overweight or using extra slots
+- **Clothing Bag Blacklist** - Block specific clothing bag drawable/texture combinations from providing bonuses
+- **Debug Helper Command** - Built-in command to identify clothing bag drawable and texture IDs
 - **Disconnection Protection** - Items in extra slots are saved and restored on reconnect
 - **Vehicle Integration** - Optional backpack removal when entering vehicles
 - **Single Backpack Limit** - Optional enforcement of one backpack per player
 - **Fully Configurable** - All settings, positions, and strings in config.lua
-- **Framework Compatible** - Works with ox_core, ESX, QBCore, and any framework using ox_inventory
+- **Framework Compatible** - Works with Qbox and theoretically any framework using ox_inventory
 
 ## Installation
 
@@ -78,6 +81,38 @@ Config.EnableSlotIncrease = true -- Enable slot increase?
 Config.ClothingBagWeightIncrease = 10000 -- Weight increase when wearing clothing bag
 Config.ClothingBagSlotIncrease = 10 -- Slot increase when wearing clothing bag
 ```
+
+### Clothing Bag Blacklist System
+Block specific clothing bag combinations from providing inventory bonuses:
+
+```lua
+Config.ClothingBagBlacklist = {
+    [0] = true, -- Block drawable 0 (no bag) with all textures
+    [45] = {0, 1, 2}, -- Block drawable 45 with textures 0, 1, and 2 only
+    [82] = true, -- Block drawable 82 with all textures
+    -- Add more entries as needed
+}
+```
+
+**Blacklist Format:**
+- `[drawable] = true` - Blocks ALL textures for that drawable
+- `[drawable] = {texture1, texture2, ...}` - Blocks specific textures for that drawable
+
+**How to Find IDs:**
+Use the built-in debug command (see Debug Helper Command section below)
+
+### Debug Helper Command
+```lua
+Config.EnableDebugCommand = true -- Enable the debug command?
+Config.DebugCommandName = 'baginfo' -- Command name to use
+```
+
+**Usage**: Type `/baginfo` (or your custom command) in-game to see:
+- Current clothing bag drawable ID
+- Current clothing bag texture ID
+- Whether it's blacklisted
+
+This makes it easy to identify which drawable/texture combinations to add to your blacklist.
 
 ### Backpack Attachment Settings
 ```lua
@@ -164,11 +199,33 @@ Unlike traditional backpack systems that create a separate container, yote_backp
 ### Clothing Bag Integration (illenium-appearance)
 1. **Clothing Component**: Uses the existing bag clothing component (component 5) from character creator
 2. **Automatic Detection**: Script detects when player equips/removes a clothing bag
-3. **Weight & Slot Bonus**: Applies configured bonuses when wearing any clothing bag
-4. **Removal Protection**: Can't remove clothing bag via appearance menu if:
+3. **Blacklist System**: Certain drawable/texture combinations can be blocked from providing bonuses
+4. **Weight & Slot Bonus**: Applies configured bonuses when wearing any non-blacklisted clothing bag
+5. **Removal Protection**: Can't remove clothing bag via appearance menu if:
    - Current weight exceeds original max weight
    - Items are in the extra slots provided by the bag
-5. **Forced Restoration**: If player somehow removes the bag while restricted, it's automatically put back on
+6. **Forced Restoration**: If player somehow removes the bag while restricted, it's automatically put back on
+
+### Clothing Bag Blacklist System
+The blacklist allows you to prevent specific clothing items from being treated as bags:
+
+**Use Cases:**
+- Block drawable 0 (no bag equipped)
+- Exclude non-bag clothing items that happen to use component slot 5
+- Prevent specific bag models from providing bonuses
+- Block parachute bags or other special items
+
+**Finding IDs:**
+1. Enable the debug command in config: `Config.EnableDebugCommand = true`
+2. Equip the clothing item you want to check
+3. Use the command in-game: `/baginfo` (or your custom command name)
+4. Note the Drawable and Texture IDs shown
+5. Add them to `Config.ClothingBagBlacklist`
+
+**Example Output:**
+```
+Current Bag - Drawable: 45, Texture: 2, Blacklisted: false
+```
 
 ### Disconnection Protection
 - When a player disconnects with items in extra slots, those items are saved to a JSON file
@@ -244,6 +301,18 @@ Simply add a new entry to `Config.Backpacks`:
 },
 ```
 
+### Blacklisting Clothing Bags
+1. Enable debug command: `Config.EnableDebugCommand = true`
+2. Equip the clothing item in-game
+3. Run command: `/baginfo`
+4. Add the drawable/texture to blacklist:
+```lua
+Config.ClothingBagBlacklist = {
+    [45] = {0, 1, 2}, -- Block specific textures
+    [82] = true, -- Block all textures
+}
+```
+
 ### Customizing Messages
 Edit the `Strings` table in `config.lua`:
 ```lua
@@ -262,6 +331,25 @@ Each backpack can have custom offset and rotation, or use defaults:
 - `rotation` - Rotation angles (x, y, z in degrees)
 - Set to `nil` to use `Config.DefaultBackpackOffset` and `Config.DefaultBackpackRotation`
 
+## Debug Commands
+
+### Bag Info Command
+Command: `/checkbag` (or your custom command name from config)
+
+**Purpose**: Display information about your current clothing bag
+
+**Output**:
+- Drawable ID of current bag
+- Texture ID of current bag
+- Whether it's blacklisted
+
+**Usage**:
+1. Equip a clothing bag in illenium-appearance
+2. Run the command
+3. Use the IDs shown to configure your blacklist
+
+**Console Output**: Also prints to F8 console for easier copying
+
 ## Performance
 
 - **Client**: 0.00ms idle, 0.01ms when checking inventory changes
@@ -279,7 +367,7 @@ For support, bug reports, or feature requests:
 ## Credits
 
 - Originally inspired by wasabi_backpack
-- Heavily modified and enhanced by yote_backpacks
+- Heavily modified and enhanced by Yote
 - Uses ox_lib and ox_inventory by Overextended
 - Compatible with illenium-appearance by iLLenium Studios
 
@@ -290,6 +378,6 @@ Feel free to modify and use in your server, but please provide credit to the ori
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: December 2024  
+**Version**: 1.1.0  
+**Last Updated**: December 10, 2025  
 **Tested On**: FiveM Build 6683, ox_inventory v2.x, illenium-appearance v1.x
