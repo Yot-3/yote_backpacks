@@ -39,10 +39,11 @@ Traditional backpack systems create separate inventories that:
 
 1. Download this script
 2. Add the backpack items to your inventory (see below)
-3. Add backpack images to `ox_inventory/web/images/` (found in `yote_backpacks/_inventory_images/`)
-4. Place script in your `resources` directory
-5. Ensure `yote_backpacks` **after** `ox_lib` but **before** `ox_inventory`
-6. Configure `config.lua` to choose your backpack system mode
+3. Make sure to rename the folder from yote_backpacks-main to yote_backpacks
+4. Add backpack images to `ox_inventory/web/images/` (found in `yote_backpacks/_inventory_images/`)
+5. Place script in your `resources` directory
+6. Ensure `yote_backpacks` **after** `ox_lib` but **before** `ox_inventory`
+7. Configure `config.lua` to choose your backpack system mode
 
 ## Dependencies
 
@@ -293,3 +294,4 @@ Feel free to modify and use in your server, but please provide credit to the ori
 **Version**: 1.0.0  
 **Last Updated**: December 2024  
 **Tested On**: FiveM Build 6683, ox_inventory v2.x, illenium-appearance v1.x
+
