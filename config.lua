@@ -7,22 +7,28 @@
 Config = {}
 
 -- General Settings
-Config.OneBagInInventory = true -- Allow only one bag in inventory?
-Config.RemoveBagInVehicle = true -- Remove backpack visual when entering vehicle?
+Config.OneBagInInventory = true -- One bag limit
+Config.RemoveBagInVehicle = true -- Remove visual in vehicle
 
--- Backpack System Type
-Config.UseInventoryBags = false -- Use inventory item backpacks with visual props?
-Config.UseClothingBags = true -- Use clothing bags from illenium-appearance instead of inventory items?
+-- System Type
+Config.UseInventoryBags = true -- Inventory items with props
+Config.UseClothingBags = false -- illenium-appearance clothing
 
--- Weight & Slot Settings (for inventory item backpacks)
-Config.EnableWeightIncrease = true -- Enable weight increase when wearing backpack?
-Config.EnableSlotIncrease = true -- Enable inventory slot increase when wearing backpack?
+-- Capacity Settings
+Config.EnableWeightIncrease = true
+Config.EnableSlotIncrease = true
 
--- Illenium-Appearance Integration (for clothing bags)
-Config.ClothingBagWeightIncrease = 10000 -- Weight increase when wearing a clothing bag
-Config.ClothingBagSlotIncrease = 10 -- Slot increase when wearing a clothing bag
+-- Clothing Bag Capacity
+Config.ClothingBagWeightIncrease = 10000 -- Grams
+Config.ClothingBagSlotIncrease = 10
 
--- Backpack Attachment Settings (Default for all bags unless overridden)
+-- Clothing Bag Blacklist
+Config.ClothingBagBlacklist = {
+    [0] = true, -- Block drawable 0 (no bag/default)
+    -- [1] = {0, 1, 2}, -- Block specific textures of drawable 1
+}
+
+-- Default Attachment (override per backpack)
 Config.DefaultBackpackOffset = {
     x = 0.07,
     y = -0.11,
@@ -35,22 +41,25 @@ Config.DefaultBackpackRotation = {
     z = 175.0
 }
 
-Config.BackpackBone = 24818 -- Bone index for attachment
+Config.BackpackBone = 24818
 
--- Timing Settings
-Config.SpawnDelay = 4500 -- Delay after player connects before checking for backpack (ms)
-Config.BackpackCheckDelay = 1000 -- Delay for duplicate backpack check (ms)
+-- Timing
+Config.SpawnDelay = 4500 -- Player connect delay (ms)
+Config.BackpackCheckDelay = 1000 -- Duplicate check delay (ms)
 
--- Custom Backpack Configurations (Only used if UseInventoryBags = true)
--- Add as many backpacks as you want here
+-- Debug
+Config.EnableDebugCommand = true
+Config.DebugCommandName = 'checkbag'
+
+-- Backpack Configurations (UseInventoryBags only)
 Config.Backpacks = {
     ['backpack'] = {
         label = 'Backpack',
         model = `p_michael_backpack_s`,
-        weightIncrease = 10000, -- Additional weight capacity (grams)
-        slotIncrease = 10, -- Additional inventory slots
-        offset = nil, -- nil = use default, or {x = 0.0, y = 0.0, z = 0.0}
-        rotation = nil, -- nil = use default, or {x = 0.0, y = 0.0, z = 0.0}
+        weightIncrease = 10000,
+        slotIncrease = 10,
+        offset = nil, -- nil = use default
+        rotation = nil,
     },
     ['duffel_bag'] = {
         label = 'Duffel Bag',
@@ -59,10 +68,11 @@ Config.Backpacks = {
         slotIncrease = 15,
         offset = {x = 0.10, y = -0.15, z = -0.10},
         rotation = {x = 0.0, y = 90.0, z = 175.0},
-    },
+    }
 }
 
-Strings = { -- Notification strings
+-- Notification Strings
+Strings = {
     action_incomplete = 'Action Incomplete',
     one_backpack_only = 'You can only have 1 backpack on!',
     too_much_weight = 'You are carrying too much weight. Remove items first.',
