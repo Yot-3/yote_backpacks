@@ -25,7 +25,6 @@ local function CanRemoveBag(source, originalWeight, originalSlots, excludeSlot)
     if Config.EnableSlotIncrease then
         local playerItems = ox_inventory:GetInventoryItems(source)
         for _, item in pairs(playerItems) do
-            -- Skip the slot we're moving from (the backpack itself)
             if item.slot > originalSlots and item.slot ~= excludeSlot then
                 return false, 'slots'
             end
@@ -35,7 +34,10 @@ local function CanRemoveBag(source, originalWeight, originalSlots, excludeSlot)
     return true, nil
 end
 
+-- Inventory bag handlers
 RegisterNetEvent('yote_backpack:increaseCapacity', function(itemName)
+    if not Config.UseInventoryBags then return end
+    
     local backpackConfig = Config.Backpacks[itemName]
     if not backpackConfig then return end
     
@@ -52,6 +54,8 @@ RegisterNetEvent('yote_backpack:increaseCapacity', function(itemName)
 end)
 
 RegisterNetEvent('yote_backpack:decreaseCapacity', function(itemName)
+    if not Config.UseInventoryBags then return end
+    
     local backpackConfig = Config.Backpacks[itemName]
     if not backpackConfig then return end
     
@@ -67,7 +71,10 @@ RegisterNetEvent('yote_backpack:decreaseCapacity', function(itemName)
     end
 end)
 
+-- Clothing bag handlers
 RegisterNetEvent('yote_backpack:increaseClothingBag', function()
+    if not Config.UseClothingBags then return end
+    
     local inventory = ox_inventory:GetInventory(source)
     if not inventory then return end
     
@@ -81,6 +88,8 @@ RegisterNetEvent('yote_backpack:increaseClothingBag', function()
 end)
 
 RegisterNetEvent('yote_backpack:decreaseClothingBag', function()
+    if not Config.UseClothingBags then return end
+    
     local inventory = ox_inventory:GetInventory(source)
     if not inventory then return end
     
@@ -119,6 +128,7 @@ CreateThread(function()
         backpackItemFilter[itemName] = true
     end
     
+    -- Prevent removing backpack with excess weight/items
     local backpackRemovalHook = ox_inventory:registerHook('swapItems', function(payload)
         local itemName = payload.fromSlot.name
         local backpackConfig = Config.Backpacks[itemName]
@@ -126,8 +136,6 @@ CreateThread(function()
         if backpackConfig and payload.fromType == 'player' then
             local inventory = ox_inventory:GetInventory(payload.source)
             local original = GetOriginalCapacity(inventory, false, backpackConfig)
-            
-            -- Pass the fromSlot to exclude it from the check
             local canRemove, reason = CanRemoveBag(payload.source, original.weight, original.slots, payload.fromSlot.slot)
             
             if not canRemove then
@@ -151,6 +159,7 @@ CreateThread(function()
         itemFilter = backpackItemFilter,
     })
     
+    -- Enforce one backpack limit on swap
     local swapHook = ox_inventory:registerHook('swapItems', function(payload)
         if not Config.OneBagInInventory then return true end
         
@@ -174,6 +183,7 @@ CreateThread(function()
         itemFilter = backpackItemFilter,
     })
     
+    -- Enforce one backpack limit on creation/receiving
     local createHook
     if Config.OneBagInInventory then
         createHook = ox_inventory:registerHook('createItem', function(payload)

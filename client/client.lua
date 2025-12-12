@@ -64,6 +64,8 @@ local function CheckForBackpack()
 end
 
 local function IsClothingBagBlacklisted(drawable, texture)
+    if not Config.ClothingBagBlacklist then return false end
+    
     local blacklistEntry = Config.ClothingBagBlacklist[drawable]
     if not blacklistEntry then return false end
     
@@ -126,13 +128,30 @@ RegisterNetEvent('yote_backpack:allowRemoveBag', function()
     TriggerServerEvent('yote_backpack:decreaseClothingBag')
 end)
 
+-- QB-Core player loaded handler
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+    if not Config.UseInventoryBags then return end
+    
+    CreateThread(function()
+        Wait(Config.SpawnDelay)
+        local foundBag = CheckForBackpack()
+        if foundBag then
+            PutOnBag(foundBag)
+        end
+    end)
+end)
+
 AddEventHandler('ox_inventory:updateInventory', function(changes)
     if not Config.UseInventoryBags then return end
     
     if justConnect then
         Wait(Config.SpawnDelay)
-        TriggerServerEvent('yote_backpack:playerLoaded')
+        local foundBag = CheckForBackpack()
+        if foundBag then
+            PutOnBag(foundBag)
+        end
         justConnect = false
+        return
     end
     
     for k, v in pairs(changes) do
@@ -159,6 +178,18 @@ lib.onCache('ped', function(value)
         Wait(500)
         UpdateClothingBagCapacity()
     end
+    
+    -- Reattach bag if ped changes and we have one equipped
+    if Config.UseInventoryBags and bagEquipped and currentBagType then
+        local tempBag = currentBagType
+        bagEquipped = false -- Prevent RemoveBag from triggering server event
+        if DoesEntityExist(bagObj) then
+            DeleteObject(bagObj)
+            bagObj = nil
+        end
+        Wait(100)
+        PutOnBag(tempBag)
+    end
 end)
 
 lib.onCache('vehicle', function(value)
@@ -168,7 +199,7 @@ lib.onCache('vehicle', function(value)
         RemoveBag()
     else
         local foundBag = CheckForBackpack()
-        if foundBag then
+        if foundBag and not bagEquipped then
             PutOnBag(foundBag)
         end
     end
@@ -184,7 +215,7 @@ if Config.UseClothingBags then
 end
 
 if Config.EnableDebugCommand then
-    RegisterCommand(Config.DebugCommandName, function()
+    RegisterCommand(Config.DebugCommandName or 'bagdebug', function()
         local drawable = GetPedDrawableVariation(ped, 5)
         local texture = GetPedTextureVariation(ped, 5)
         local blacklisted = IsClothingBagBlacklisted(drawable, texture)
