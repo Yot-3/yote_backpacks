@@ -6,7 +6,7 @@ game 'gta5'
 lua54 'yes'
 
 description 'Yote Backpack for Ox Inventory'
-version '1.0.4'
+version '1.1.1'
 
 client_scripts {
     'client/**.lua'
@@ -24,3 +24,4 @@ shared_scripts {
 dependencies {
   'ox_inventory'
 }
+
