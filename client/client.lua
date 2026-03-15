@@ -11,45 +11,64 @@ local function GetBackpackConfig(itemName)
     return Config.Backpacks[itemName]
 end
 
-local function PutOnBag(itemName)
+--- Attach the prop and (optionally) grant server-side capacity.
+--- Pass skipCapacity=true when re-attaching after a ped/vehicle change
+--- so the extra slots are not granted a second time.
+local function PutOnBag(itemName, skipCapacity)
     if bagEquipped then return end
-    
+
     local backpackConfig = GetBackpackConfig(itemName)
     if not backpackConfig then return end
-    
+
     local hash = backpackConfig.model
     local offset = backpackConfig.offset or Config.DefaultBackpackOffset
     local rotation = backpackConfig.rotation or Config.DefaultBackpackRotation
-    
+
     lib.requestModel(hash, 1000)
     local coords = GetOffsetFromEntityInWorldCoords(ped, 0.0, 3.0, 0.5)
     bagObj = CreateObjectNoOffset(hash, coords.x, coords.y, coords.z, true, false, false)
-    AttachEntityToEntity(bagObj, ped, GetPedBoneIndex(ped, Config.BackpackBone), 
-        offset.x, offset.y, offset.z, 
-        rotation.x, rotation.y, rotation.z, 
+    AttachEntityToEntity(bagObj, ped, GetPedBoneIndex(ped, Config.BackpackBone),
+        offset.x, offset.y, offset.z,
+        rotation.x, rotation.y, rotation.z,
         true, true, false, true, 1, true)
-    
+
     bagEquipped = true
     currentBagType = itemName
-    TriggerServerEvent('yote_backpack:increaseCapacity', itemName)
+
+    if not skipCapacity then
+        TriggerServerEvent('yote_backpack:increaseCapacity', itemName)
+    end
 end
 
-local function RemoveBag()
-    if not bagEquipped then return end
-    
+--- Delete the prop only — capacity grant on the server is NOT touched.
+--- Used when entering a vehicle so extra slots stay visible in inventory.
+local function RemoveBagProp()
     if DoesEntityExist(bagObj) then
         DeleteObject(bagObj)
         bagObj = nil
     end
-    
     if currentBagType then
         local backpackConfig = GetBackpackConfig(currentBagType)
-        if backpackConfig then
-            SetModelAsNoLongerNeeded(backpackConfig.model)
-        end
+        if backpackConfig then SetModelAsNoLongerNeeded(backpackConfig.model) end
+    end
+    -- bagEquipped / currentBagType intentionally kept: bag is still logically on.
+end
+
+--- Full removal: delete prop AND revoke server-side capacity.
+local function RemoveBag()
+    if not bagEquipped then return end
+
+    if DoesEntityExist(bagObj) then
+        DeleteObject(bagObj)
+        bagObj = nil
+    end
+
+    if currentBagType then
+        local backpackConfig = GetBackpackConfig(currentBagType)
+        if backpackConfig then SetModelAsNoLongerNeeded(backpackConfig.model) end
         TriggerServerEvent('yote_backpack:decreaseCapacity', currentBagType)
     end
-    
+
     bagEquipped = false
     currentBagType = nil
 end
@@ -179,28 +198,49 @@ lib.onCache('ped', function(value)
         UpdateClothingBagCapacity()
     end
     
-    -- Reattach bag if ped changes and we have one equipped
+    -- Re-attach prop after ped change without re-granting capacity.
     if Config.UseInventoryBags and bagEquipped and currentBagType then
-        local tempBag = currentBagType
-        bagEquipped = false -- Prevent RemoveBag from triggering server event
         if DoesEntityExist(bagObj) then
             DeleteObject(bagObj)
             bagObj = nil
         end
+        local tempBag = currentBagType
+        bagEquipped = false
         Wait(100)
-        PutOnBag(tempBag)
+        PutOnBag(tempBag, true)   -- skipCapacity=true: capacity was never revoked
     end
 end)
 
 lib.onCache('vehicle', function(value)
     if not Config.UseInventoryBags or GetResourceState('ox_inventory') ~= 'started' then return end
-    
-    if value and Config.RemoveBagInVehicle then
-        RemoveBag()
+
+    if value then
+        -- Entering a vehicle: hide the prop only; keep capacity active so
+        -- extra slots are visible when the player opens their inventory while seated.
+        if Config.RemoveBagInVehicle then
+            RemoveBagProp()
+        end
     else
-        local foundBag = CheckForBackpack()
-        if foundBag and not bagEquipped then
-            PutOnBag(foundBag)
+        -- Leaving a vehicle: re-attach prop if the bag is still logically equipped.
+        if bagEquipped and currentBagType then
+            if not DoesEntityExist(bagObj) then
+                local bc = GetBackpackConfig(currentBagType)
+                if bc then
+                    local hash = bc.model
+                    local offset = bc.offset or Config.DefaultBackpackOffset
+                    local rotation = bc.rotation or Config.DefaultBackpackRotation
+                    lib.requestModel(hash, 1000)
+                    local coords = GetOffsetFromEntityInWorldCoords(ped, 0.0, 3.0, 0.5)
+                    bagObj = CreateObjectNoOffset(hash, coords.x, coords.y, coords.z, true, false, false)
+                    AttachEntityToEntity(bagObj, ped, GetPedBoneIndex(ped, Config.BackpackBone),
+                        offset.x, offset.y, offset.z,
+                        rotation.x, rotation.y, rotation.z,
+                        true, true, false, true, 1, true)
+                end
+            end
+        else
+            local foundBag = CheckForBackpack()
+            if foundBag and not bagEquipped then PutOnBag(foundBag) end
         end
     end
 end)
