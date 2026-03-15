@@ -1,17 +1,13 @@
-local bagEquipped     = false   -- true when prop is attached AND capacity granted
-local bagObj          = nil     -- entity handle for the prop
-local currentBagType  = nil     -- itemName of equipped bag, or nil
-local ox_inventory    = exports.ox_inventory
-local ped             = cache.ped
-local justConnect     = true
-local clothingBagActive  = false
-local checkingRemoval    = false
-local lastBagDrawable    = 0
-local lastBagTexture     = 0
-
--- ─────────────────────────────────────────────────────────────
---  Internal helpers
--- ─────────────────────────────────────────────────────────────
+local bagEquipped    = false
+local bagObj         = nil
+local currentBagType = nil
+local ox_inventory   = exports.ox_inventory
+local ped            = cache.ped
+local justConnect    = true
+local clothingBagActive = false
+local checkingRemoval   = false
+local lastBagDrawable   = 0
+local lastBagTexture    = 0
 
 local function GetBackpackConfig(itemName)
     return Config.Backpacks[itemName]
@@ -19,7 +15,7 @@ end
 
 --- Attach the prop and (optionally) grant server-side capacity.
 --- Pass skipCapacity=true when re-attaching after a ped/vehicle change
---- so we do not double-grant.
+--- so the extra slots are not granted a second time.
 local function PutOnBag(itemName, skipCapacity)
     if bagEquipped then return end
 
@@ -48,25 +44,21 @@ local function PutOnBag(itemName, skipCapacity)
     end
 end
 
---- Delete the prop only — does NOT touch server capacity.
---- Used when entering a vehicle with RemoveBagInVehicle=true so that
---- the extra slots stay available for inventory interaction while seated.
+--- Delete the prop only — capacity grant on the server is NOT touched.
+--- Used when entering a vehicle so extra slots stay visible in inventory.
 local function RemoveBagProp()
     if DoesEntityExist(bagObj) then
         DeleteObject(bagObj)
         bagObj = nil
     end
-
     if currentBagType then
         local bc = GetBackpackConfig(currentBagType)
         if bc then SetModelAsNoLongerNeeded(bc.model) end
     end
-
-    -- Note: bagEquipped and currentBagType are intentionally NOT cleared here.
-    -- The bag is still logically equipped; only the visual is hidden.
+    -- bagEquipped / currentBagType intentionally kept: bag is still logically on.
 end
 
---- Full removal: delete prop AND revoke server capacity.
+--- Full removal: delete prop AND revoke server-side capacity.
 local function RemoveBag()
     if not bagEquipped then return end
 
@@ -97,11 +89,11 @@ end
 local function IsClothingBagBlacklisted(drawable, texture)
     if not Config.ClothingBagBlacklist then return false end
 
-    local entry = Config.ClothingBagBlacklist[drawable]
-    if not entry then return false end
+    local blacklistEntry = Config.ClothingBagBlacklist[drawable]
+    if not blacklistEntry then return false end
 
-    if type(entry) == 'table' then
-        for _, blockedTexture in ipairs(entry) do
+    if type(blacklistEntry) == "table" then
+        for _, blockedTexture in ipairs(blacklistEntry) do
             if blockedTexture == texture then return true end
         end
         return false
@@ -134,10 +126,6 @@ local function UpdateClothingBagCapacity()
     end
 end
 
--- ─────────────────────────────────────────────────────────────
---  Net events from server
--- ─────────────────────────────────────────────────────────────
-
 RegisterNetEvent('yote_backpack:cannotRemoveBag', function(reason)
     checkingRemoval = false
     SetPedComponentVariation(ped, 5, lastBagDrawable, lastBagTexture, 0)
@@ -164,11 +152,7 @@ RegisterNetEvent('yote_backpack:allowRemoveBag', function()
     TriggerServerEvent('yote_backpack:decreaseClothingBag')
 end)
 
--- ─────────────────────────────────────────────────────────────
---  Framework: player loaded
--- ─────────────────────────────────────────────────────────────
-
-local function OnPlayerLoaded()
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     if not Config.UseInventoryBags then return end
 
     CreateThread(function()
@@ -176,26 +160,12 @@ local function OnPlayerLoaded()
         local foundBag = CheckForBackpack()
         if foundBag then PutOnBag(foundBag) end
     end)
-end
-
--- QBCore
-RegisterNetEvent('QBCore:Client:OnPlayerLoaded', OnPlayerLoaded)
-
--- ESX
-if Config.Framework == 'esx' then
-    AddEventHandler('esx:playerLoaded', OnPlayerLoaded)
-end
-
--- ─────────────────────────────────────────────────────────────
---  ox_inventory update (handles initial load + bag swaps)
--- ─────────────────────────────────────────────────────────────
+end)
 
 AddEventHandler('ox_inventory:updateInventory', function(changes)
     if not Config.UseInventoryBags then return end
 
     if justConnect then
-        -- Fix 1b: clear the flag BEFORE the wait so a second fired event
-        -- during the delay does not trigger a second PutOnBag.
         justConnect = false
         Wait(Config.SpawnDelay)
         local foundBag = CheckForBackpack()
@@ -203,7 +173,7 @@ AddEventHandler('ox_inventory:updateInventory', function(changes)
         return
     end
 
-    for _, v in pairs(changes) do
+    for k, v in pairs(changes) do
         if type(v) == 'table' or type(v) == 'boolean' then
             local foundBag = CheckForBackpack()
 
@@ -219,10 +189,6 @@ AddEventHandler('ox_inventory:updateInventory', function(changes)
     end
 end)
 
--- ─────────────────────────────────────────────────────────────
---  Cache callbacks
--- ─────────────────────────────────────────────────────────────
-
 lib.onCache('ped', function(value)
     ped = value
 
@@ -231,20 +197,16 @@ lib.onCache('ped', function(value)
         UpdateClothingBagCapacity()
     end
 
-    -- Fix 1c: re-attach prop without re-granting capacity (skipCapacity=true).
+    -- Re-attach prop after ped change without re-granting capacity.
     if Config.UseInventoryBags and bagEquipped and currentBagType then
-        -- Destroy old prop silently (already detached from old ped entity)
         if DoesEntityExist(bagObj) then
             DeleteObject(bagObj)
             bagObj = nil
         end
-        -- Temporarily clear bagEquipped so PutOnBag's guard doesn't block us,
-        -- but keep currentBagType so skipCapacity path knows what to re-attach.
         local tempBag = currentBagType
         bagEquipped   = false
-        -- currentBagType is reset inside PutOnBag; pass true to skip server event
         Wait(100)
-        PutOnBag(tempBag, true)
+        PutOnBag(tempBag, true)   -- skipCapacity=true: already granted
     end
 end)
 
@@ -253,22 +215,17 @@ lib.onCache('vehicle', function(value)
     if GetResourceState('ox_inventory') ~= 'started' then return end
 
     if value then
-        -- Entering a vehicle
+        -- Entering a vehicle: hide prop only so inventory still shows extra slots.
         if Config.RemoveBagInVehicle then
-            -- Fix 1a / Issue #1: hide the prop only; keep capacity active so
-            -- the extra slots are visible when the player opens their inventory
-            -- while seated.
             RemoveBagProp()
         end
-        -- If RemoveBagInVehicle=false: do nothing — prop stays on.
     else
-        -- Leaving a vehicle
+        -- Leaving a vehicle: re-attach prop if the bag is still logically equipped.
         if bagEquipped and currentBagType then
-            -- Re-attach prop without re-granting (capacity was never removed)
             if not DoesEntityExist(bagObj) then
-                local bc     = GetBackpackConfig(currentBagType)
-                local hash   = bc and (bc.model)
-                if hash then
+                local bc = GetBackpackConfig(currentBagType)
+                if bc then
+                    local hash     = bc.model
                     local offset   = bc.offset   or Config.DefaultBackpackOffset
                     local rotation = bc.rotation or Config.DefaultBackpackRotation
                     lib.requestModel(hash, 1000)
@@ -282,18 +239,12 @@ lib.onCache('vehicle', function(value)
                     )
                 end
             end
-        elseif not bagEquipped then
-            -- Fallback: not equipped at all (e.g. RemoveBagInVehicle=false path
-            -- where the bag was never removed, so this branch should rarely fire)
+        else
             local foundBag = CheckForBackpack()
             if foundBag and not bagEquipped then PutOnBag(foundBag) end
         end
     end
 end)
-
--- ─────────────────────────────────────────────────────────────
---  Clothing bag polling thread
--- ─────────────────────────────────────────────────────────────
 
 if Config.UseClothingBags then
     CreateThread(function()
@@ -304,23 +255,15 @@ if Config.UseClothingBags then
     end)
 end
 
--- ─────────────────────────────────────────────────────────────
---  Debug command
--- ─────────────────────────────────────────────────────────────
-
 if Config.EnableDebugCommand then
-    RegisterCommand(Config.DebugCommandName or 'baginfo', function()
-        local drawable   = GetPedDrawableVariation(ped, 5)
-        local texture    = GetPedTextureVariation(ped, 5)
+    RegisterCommand(Config.DebugCommandName or 'bagdebug', function()
+        local drawable    = GetPedDrawableVariation(ped, 5)
+        local texture     = GetPedTextureVariation(ped, 5)
         local blacklisted = IsClothingBagBlacklisted(drawable, texture)
-        print(('[yote_backpacks] debug — drawable:%d texture:%d blacklisted:%s equipped:%s bag:%s'):format(
-            drawable, texture, tostring(blacklisted), tostring(bagEquipped), tostring(currentBagType)
-        ))
+        print(string.format('Current Bag - Drawable: %d, Texture: %d, Blacklisted: %s', drawable, texture, tostring(blacklisted)))
         lib.notify({
             type        = 'info',
-            description = ('Drawable: %d | Texture: %d | Blacklisted: %s | Bag: %s'):format(
-                drawable, texture, tostring(blacklisted), tostring(currentBagType)
-            )
+            description = string.format('Drawable: %d | Texture: %d | Blacklisted: %s', drawable, texture, tostring(blacklisted))
         })
     end)
 end
